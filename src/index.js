@@ -1,70 +1,69 @@
 const express = require("express");
-const collection = require("./db");
-const path = require("path"); 
+const cors = require("cors");
 const bcrypt = require("bcrypt");
+
+require("../db/config");
+const User = require("../db/User");
+
+const jwt = require('jsonwebtoken');
+const jwtKey = 'tictactoe';
 
 const app = express();
 
 app.use(express.json());
 
-app.use(express.urlencoded({extended: false}));
-
-app.set("views", path.join(__dirname, "../views"));
-
-app.set("view engine", "ejs");
-
-app.use(express.static(path.join(__dirname, '../public')));
-
-app.get("/", (req, res) => {
-    res.render("login");
-});
-
-app.get("/register", (req, res) => {
-    res.render("register");
-});
+app.use(cors());
 
 app.post("/register", async (req, res) => {
-    const data = {
-        username: req.body.username,
-        password: req.body.password
-    }
-
     try {
-        const existingUser = await collection.findOne({username: data.username});
-
-        if(existingUser){
-            res.send("User already exists!");
-        }else{
-            const saltRounds = 10;
-            const hashedPassword = await bcrypt.hash(data.password, saltRounds);
-    
-            data.password = hashedPassword;
-    
-            const userData = await collection.insertMany(data);
-            console.log(userData);
-            res.send("Registration successful!"); 
+        const existingUser = await User.findOne({ username: req.body.username });
+        if (existingUser) {
+            return res.status(400).json({ error: "User already exists!" });
         }
-    } catch (error) {
-        console.error(error);
-        res.status(500).send("An error occurred during registration."); 
+
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
+
+        const newUser = new User({
+            username: req.body.username,
+            password: hashedPassword
+        });
+
+        await newUser.save();
+
+        jwt.sign({ username: newUser.username }, jwtKey, { expiresIn: "2h" }, (err, token) => {
+            if (err) {
+                return res.status(500).json({ error: "Something went wrong..." });
+            }
+            res.status(200).json({ user: newUser, auth: token });
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-app.post("/login", async (req, res)=>{
-    try{
-        const check = await collection.findOne({username: req.body.username});
-        if(!check){
-            res.send("User name cannot found!");
+app.post("/login", async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.body.username });
+        if (!user) {
+            return res.status(400).json({ error: "User not found!" });
         }
 
-        const isPasswordMatch = await bcrypt.compare(req.body.password, check.password);
-        if(isPasswordMatch){
-            res.render("home");
-        }else{
-            res.send("Wrong password!");
+        const passwordMatch = await bcrypt.compare(req.body.password, user.password);
+        if (!passwordMatch) {
+            return res.status(400).json({ error: "Incorrect password!" });
         }
-    }catch{
-        res.render("Wrong details");
+
+        jwt.sign({ username: user.username }, jwtKey, { expiresIn: "2h" }, (err, token) => {
+            if (err) {
+                return res.status(500).json({ error: "Something went wrong..." });
+            }
+            res.status(200).json({ user, auth: token });
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
