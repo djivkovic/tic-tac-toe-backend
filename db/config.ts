@@ -1,10 +1,10 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const connect = mongoose.connect("mongodb://127.0.0.1:27017/tictactoe-db");
 
-connect.then(()=>{
+connect.then(() => {
     console.log('MongoDB connected');
 })
-.catch(()=>{
+.catch(() => {
     console.error('Error connecting to MongoDB');
 });

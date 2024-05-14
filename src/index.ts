@@ -1,22 +1,21 @@
-const express = require("express");
-const cors = require("cors");
-const bcrypt = require("bcrypt");
+import { Request, Response } from "express";
+import express from "express";
+import cors from "cors";
+import * as bcrypt from "bcrypt";
+import * as jwt from "jsonwebtoken";
+import "../db/config";
+import UserModel from "../db/User";
 
-require("../db/config");
-const User = require("../db/User");
 
-const jwt = require('jsonwebtoken');
 const jwtKey = 'tictactoe';
-
 const app = express();
 
 app.use(express.json());
-
 app.use(cors());
 
-app.post("/register", async (req, res) => {
+app.post("/register", async (req: Request, res: Response) => {
     try {
-        const existingUser = await User.findOne({ username: req.body.username });
+        const existingUser = await UserModel.findOne({ username: req.body.username });
         if (existingUser) {
             return res.status(400).json({ error: "User already exists!" });
         }
@@ -24,7 +23,7 @@ app.post("/register", async (req, res) => {
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
 
-        const newUser = new User({
+        const newUser = new UserModel({
             username: req.body.username,
             password: hashedPassword
         });
@@ -43,9 +42,9 @@ app.post("/register", async (req, res) => {
     }
 });
 
-app.post("/login", async (req, res) => {
+app.post("/login", async (req: Request, res: Response) => {
     try {
-        const user = await User.findOne({ username: req.body.username });
+        const user = await UserModel.findOne({ username: req.body.username });
         if (!user) {
             return res.status(400).json({ error: "User not found!" });
         }
