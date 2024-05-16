@@ -5,7 +5,7 @@ import * as bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
 import "../db/config";
 import UserModel from "../db/User";
-
+import {GameModel, generateGameId} from "../db/Game";
 
 const jwtKey = 'tictactoe';
 const app = express();
@@ -65,6 +65,26 @@ app.post("/login", async (req: Request, res: Response) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
+app.post("/create-game", async (req: Request, res: Response) => {
+    try {
+        const gameId = await generateGameId();
+
+        const newGame = new GameModel({
+            gameId,
+            gameType: req.body.gameType,
+            moves: req.body.moves,
+            winner: req.body.winner
+        });
+
+        await newGame.save();
+
+        res.status(200).json({ message: "Game created successfully", game: newGame });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 
 app.listen(5000, () => {
     console.log("Server running on port 5000");
