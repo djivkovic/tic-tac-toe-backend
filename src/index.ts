@@ -2,16 +2,82 @@ import { Request, Response } from "express";
 import express from "express";
 import cors from "cors";
 import * as bcrypt from "bcrypt";
-import * as jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken';
 import "../db/config";
 import UserModel from "../db/User";
 import {GameModel, generateGameId} from "../db/Game";
+import http from 'http';
+import { Server } from "socket.io";
 
 const jwtKey = 'tictactoe';
 const app = express();
 
 app.use(express.json());
 app.use(cors());
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+// function verifyToken(socket, next) {
+//     const token = socket.handshake.query.token;
+//     console.log(token);
+//     try {
+//         if (token) {
+//             const decoded =  jwt.verify(token, jwtKey);
+//             console.log("Token verified successfully");
+//             socket.user = decoded;
+//             next();
+//         } else {
+//             console.log("No token provided");
+//             next(new Error('Authentication error'));
+//         }
+//     } catch (err) {
+//         console.log("Error verifying token:", err.message);
+//         next(new Error('Authentication error'));
+//     }
+// }
+
+// io.use(verifyToken);
+
+io.on("connection", (socket) => {
+    console.log(`User connected: ${socket.id}`);
+
+    socket.on("send_message", (data) => {
+        if (data.room) {
+            socket.to(data.room).emit("receive_message", data);
+        } else {
+            io.emit("receive_message", data);
+        }
+        console.log(data);
+    });
+
+    socket.on("join_room", async (room) => {
+        const socketsInRoom = await io.in(room).fetchSockets();
+        if(socketsInRoom.length === 2){
+            console.log("Max 2 soketa po sobi");
+            return;
+        }else{
+            socket.join(room);
+            const socketsInRoom = await io.in(room).fetchSockets();
+            console.log(`Broj soketa u sobi:${room} `, socketsInRoom.length);
+            console.log("Soketi u sobi", room, socketsInRoom.map(socket => socket.id));
+        }
+    });
+
+    socket.on("leave_room", async (room) => {
+        socket.leave(room);
+        console.log(`User ${socket.id} has left room ${room}`);
+    });
+
+    socket.on("disconnect", () => {
+        console.log(`User disconnected: ${socket.id}`);
+    });
+});
 
 app.post("/register", async (req: Request, res: Response) => {
     try {
@@ -85,7 +151,6 @@ app.post("/create-game", async (req: Request, res: Response) => {
     }
 });
 
-
-app.listen(5000, () => {
+server.listen(5000, () => {
     console.log("Server running on port 5000");
 });
