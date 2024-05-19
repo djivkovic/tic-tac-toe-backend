@@ -5,7 +5,7 @@ import * as bcrypt from "bcrypt";
 import jwt from 'jsonwebtoken';
 import "../db/config";
 import UserModel from "../db/User";
-import {GameModel, generateGameId} from "../db/Game";
+import { GameModel, generateGameId } from "../db/Game";
 import http from 'http';
 import { Server } from "socket.io";
 
@@ -23,27 +23,6 @@ const io = new Server(server, {
         methods: ["GET", "POST"]
     }
 });
-// function verifyToken(socket, next) {
-//     const token = socket.handshake.query.token;
-//     console.log(token);
-//     try {
-//         if (token) {
-//             const decoded =  jwt.verify(token, jwtKey);
-//             console.log("Token verified successfully");
-//             socket.user = decoded;
-//             next();
-//         } else {
-//             console.log("No token provided");
-//             next(new Error('Authentication error'));
-//         }
-//     } catch (err) {
-//         console.log("Error verifying token:", err.message);
-//         next(new Error('Authentication error'));
-//     }
-// }
-
-// io.use(verifyToken);
-
 io.on("connection", (socket) => {
     console.log(`User connected: ${socket.id}`);
 
@@ -55,23 +34,65 @@ io.on("connection", (socket) => {
         }
         console.log(data);
     });
-
-    socket.on("join_room", async (room) => {
-        const socketsInRoom = await io.in(room).fetchSockets();
-        if(socketsInRoom.length === 2){
-            console.log("Max 2 soketa po sobi");
+    socket.on("join_room", async (data) => {
+        const { room, userId, username } = data;
+    
+        if (!room || isNaN(room)) {
+            console.error(`Invalid room value: ${room}`);
+            socket.emit("join_room_response", { success: false, message: "Invalid room value" });
             return;
-        }else{
-            socket.join(room);
-            const socketsInRoom = await io.in(room).fetchSockets();
-            console.log(`Broj soketa u sobi:${room} `, socketsInRoom.length);
-            console.log("Soketi u sobi", room, socketsInRoom.map(socket => socket.id));
+        }
+    
+        const roomNumber = parseInt(room, 10);
+    
+        try {
+            const game = await GameModel.findOne({ gameId: roomNumber });
+            if (game) {
+                const socketsInRoom = await io.in(room).fetchSockets();
+    
+                if (socketsInRoom.length >= 2) {
+                    console.log("Room is full!");
+                    socket.emit("join_room_response", { success: false, message: "Room is full!" });
+                    return;
+                }
+    
+                if (game.players.length === 2 && !game.players.includes(userId)) {
+                    console.log("Max 2 players per game. Only existing players can rejoin.");
+                    socket.emit("join_room_response", { success: false, message: "Max 2 players per game. Only existing players can rejoin." });
+                    return;
+                }
+    
+                if (!game.players.includes(userId)) {
+                    game.players.push(userId);
+                    await game.save();
+                    console.log(`User ${userId} added to game ${room}`);
+                } else {
+                    console.log(`User ${userId} is already in the game ${room}`);
+                }
+    
+                socket.join(room);
+                console.log(`User ${socket.id} has joined room ${room}`);
+    
+                const players = await UserModel.find({ _id: { $in: game.players } }, 'username');
+                const playerUsernames = players.map(player => player.username);
+    
+                io.to(room).emit("update_players", { players: playerUsernames });
+                socket.emit("join_room_response", { success: true, message: `User ${userId} joined room ${room}`, username });
+            } else {
+                console.log(`Game ${room} not found`);
+                socket.emit("join_room_response", { success: false, message: "Game not found" });
+            }
+        } catch (error) {
+            console.error(`Error handling join_room for game ${room}:`, error);
+            socket.emit("join_room_response", { success: false, message: "Server error" });
         }
     });
 
     socket.on("leave_room", async (room) => {
+        const socketsInRoom = await io.in(room).fetchSockets();
         socket.leave(room);
         console.log(`User ${socket.id} has left room ${room}`);
+        console.log("Sockets in room ", room, socketsInRoom.map(socket => socket.id));
     });
 
     socket.on("disconnect", () => {
@@ -96,7 +117,9 @@ app.post("/register", async (req: Request, res: Response) => {
 
         await newUser.save();
 
-        jwt.sign({ username: newUser.username }, jwtKey, { expiresIn: "2h" }, (err, token) => {
+        const payload = { id: newUser._id, username: newUser.username };
+        
+        jwt.sign(payload, jwtKey, { expiresIn: "2h" }, (err, token) => {
             if (err) {
                 return res.status(500).json({ error: "Something went wrong..." });
             }
@@ -107,7 +130,6 @@ app.post("/register", async (req: Request, res: Response) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
-
 app.post("/login", async (req: Request, res: Response) => {
     try {
         const user = await UserModel.findOne({ username: req.body.username });
@@ -120,7 +142,9 @@ app.post("/login", async (req: Request, res: Response) => {
             return res.status(400).json({ error: "Incorrect password!" });
         }
 
-        jwt.sign({ username: user.username }, jwtKey, { expiresIn: "2h" }, (err, token) => {
+        const payload = { id: user._id, username: user.username };
+        
+        jwt.sign(payload, jwtKey, { expiresIn: "2h" }, (err, token) => {
             if (err) {
                 return res.status(500).json({ error: "Something went wrong..." });
             }
@@ -134,17 +158,19 @@ app.post("/login", async (req: Request, res: Response) => {
 app.post("/create-game", async (req: Request, res: Response) => {
     try {
         const gameId = await generateGameId();
+        const gameType = req.body['gameType'];
 
         const newGame = new GameModel({
             gameId,
-            gameType: req.body.gameType,
-            moves: req.body.moves,
-            winner: req.body.winner
+            gameType,
+            players: [],
+            moves: [],
+            winner: null
         });
 
         await newGame.save();
 
-        res.status(200).json({ message: "Game created successfully", game: newGame });
+        res.status(201).json({ gameId });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Internal Server Error" });
