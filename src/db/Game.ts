@@ -8,14 +8,22 @@ interface Game extends Document {
     winner?: string | null;
 }
 
-interface Move {
-    index: number;
-    player: string;
+export interface Move {
+    index: {
+        x: number;
+        y: number;
+    };
+    sign: string;
+    userId: string;
 }
 
 const moveSchema: Schema<Move> = new Schema<Move>({
-    index: { type: Number, required: true },
-    player: { type: String, required: true }
+    index: {
+        x: { type: Number, required: true },
+        y: { type: Number, required: true }
+    },
+    sign: { type: String, required: true },
+    userId: { type: String, required: true }
 });
 
 const gameSchema: Schema<Game> = new Schema<Game>({

@@ -78,6 +78,10 @@ export const initSocket = (server: any) => {
             console.log('Sockets in room ', room, socketsInRoom.map(socket => socket.id));
         });
 
+        socket.on('update_moves', ({ roomId, moves }) => {
+            console.log("MOVES: ", moves);
+        });
+
         socket.on('disconnect', () => {
             console.log(`User disconnected: ${socket.id}`);
         });
