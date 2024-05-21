@@ -65,6 +65,7 @@ export const getPlayersInGame = async (gameId: number) => {
         throw new Error('Failed to get players in game!');
     }
 };
+
 export const assignPlayer = async (gameId: number, userId: string, sign: string) => {
     try {
         const game = await findGameById(gameId);
@@ -136,6 +137,7 @@ export const getMovesByGameId = async (gameId: number) => {
         throw new Error('Failed to get moves by gameId!');
     }
 };
+
 export const getPlayerSymbol = async (gameId: number, userId: string) => {
     try {
         const game = await findGameById(gameId);

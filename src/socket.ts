@@ -75,6 +75,7 @@ const onDisconnect = (socket) => {
         console.log(`User disconnected: ${socket.id}`);
     });
 }
+
 export const initSocket = (server: any) => {
     io = new Server(server, {
         cors: {
