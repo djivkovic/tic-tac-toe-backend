@@ -2,6 +2,7 @@ import { GameModel, generateGameId } from '../db/Game';
 import UserModel from '../db/User';
 import { Move } from '../db/Game';
 import * as Socket from '../socket';
+
 export const createGame = async (gameType: string) => {
     try {
         const gameId = await generateGameId();
@@ -10,7 +11,8 @@ export const createGame = async (gameType: string) => {
             gameType,
             players: [],
             moves: [],
-            winner: null
+            winner: null,
+            playerSymbols: []
         });
 
         await newGame.save();
@@ -21,6 +23,7 @@ export const createGame = async (gameType: string) => {
         throw new Error('Failed to create game!');
     }
 };
+
 export const findGameById = async (gameId: number) => {
     try {
         return await GameModel.findOne({ gameId });
@@ -29,6 +32,7 @@ export const findGameById = async (gameId: number) => {
         throw new Error('Failed to find game by ID!');
     }
 };
+
 export const addPlayerToGame = async (gameId: number, userId: string) => {
     try {
         const game = await GameModel.findOne({ gameId });
@@ -47,6 +51,7 @@ export const addPlayerToGame = async (gameId: number, userId: string) => {
         throw new Error('Failed to add player to game!');
     }
 };
+
 export const getPlayersInGame = async (gameId: number) => {
     try {
         const game = await findGameById(gameId);
@@ -60,7 +65,38 @@ export const getPlayersInGame = async (gameId: number) => {
         throw new Error('Failed to get players in game!');
     }
 };
-export const addMoveToGame = async (gameId: number, move: Move) => {
+export const assignPlayer = async (gameId: number, userId: string, sign: string) => {
+    try {
+        const game = await findGameById(gameId);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        if (sign !== 'X' && sign !== 'O') {
+            throw new Error('Invalid sign');
+        }
+
+        const playerWithSymbol = game.playerSymbols.find(ps => ps.playerId === userId);
+        if (playerWithSymbol) {
+            throw new Error(`Player ${userId} already has a symbol assigned`);
+        }
+
+        const assignedSigns = game.playerSymbols.map(ps => ps.symbol);
+        if (assignedSigns.includes(sign)) {
+            throw new Error(`Sign ${sign} is already taken`);
+        }
+
+        game.playerSymbols.push({ playerId: userId, symbol: sign });
+        await game.save();
+
+        return game;
+    } catch (error) {
+        console.error('Error assigning player symbol:', error);
+        throw new Error('Failed to assign player symbol!');
+    }
+};
+
+export const addMoveToGame = async (gameId: number, userId: string, move: Move) => {
     try {
         const game = await findGameById(gameId);
         if (!game) {
@@ -85,6 +121,7 @@ export const addMoveToGame = async (gameId: number, move: Move) => {
         throw new Error('Failed to add move to game!');
     }
 };
+
 export const getMovesByGameId = async (gameId: number) => {
     try {
         const game = await findGameById(gameId);
@@ -97,5 +134,23 @@ export const getMovesByGameId = async (gameId: number) => {
     } catch (error) {
         console.error('Error getting moves by gameId:', error);
         throw new Error('Failed to get moves by gameId!');
+    }
+};
+export const getPlayerSymbol = async (gameId: number, userId: string) => {
+    try {
+        const game = await findGameById(gameId);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        const playerSymbol = game.playerSymbols.find(ps => ps.playerId === userId);
+        if (!playerSymbol) {
+            throw new Error('Player has not been assigned a symbol');
+        }
+
+        return playerSymbol.symbol;
+    } catch (error) {
+        console.error('Error getting player symbol:', error);
+        throw new Error('Failed to get player symbol!');
     }
 };
