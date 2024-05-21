@@ -67,14 +67,35 @@ export const addMoveToGame = async (gameId: number, move: Move) => {
             throw new Error('Game not found');
         }
 
+        const existingMove = game.moves.find(m => m.index.x === move.index.x && m.index.y === move.index.y);
+
+        if (existingMove) {
+            console.log(`Move (${move.index.x}, ${move.index.y}) already exists!`);
+            return game; 
+        }
+
         game.moves.push(move);
         await game.save();
 
-        Socket.emitMoves(gameId, game.moves);
+        Socket.emitMoves(gameId, move);
 
         return game;
     } catch (error) {
         console.error('Error adding move to game:', error);
         throw new Error('Failed to add move to game!');
+    }
+};
+export const getMovesByGameId = async (gameId: number) => {
+    try {
+        const game = await findGameById(gameId);
+
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        return game.moves;
+    } catch (error) {
+        console.error('Error getting moves by gameId:', error);
+        throw new Error('Failed to get moves by gameId!');
     }
 };

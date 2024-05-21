@@ -21,3 +21,13 @@ export const addMoveToGame = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
+export const getMovesByGameId = async (req: Request, res: Response) => {
+    try {
+        const gameId = parseInt(req.params.gameId);
+        const moves = await GameService.getMovesByGameId(gameId);
+        res.status(200).json(moves);
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};

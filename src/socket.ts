@@ -4,7 +4,7 @@ import * as GameService from '../src/services/gameService';
 let io;
 
 export const emitMoves = (room, data) => {
-    io.to(room).emit('update_moves', { moves: data })
+    io.to(room).emit('update_moves', { move: data })
 }
 
 const onJoin = (socket) => {
