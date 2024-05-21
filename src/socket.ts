@@ -21,40 +21,42 @@ const onJoin = (socket) => {
 
         try {
             const game = await GameService.findGameById(roomNumber);
-            if (game) {
-                const socketsInRoom = await io.in(room).fetchSockets();
 
-                if (socketsInRoom.length >= 2) {
-                    console.log('Room is full!');
-                    socket.emit('join_room_response', { success: false, message: 'Room is full!' });
-                    return;
-                }
-
-                if (game.players.length === 2 && !game.players.includes(userId)) {
-                    console.log('Max 2 players per game. Only existing players can rejoin.');
-                    socket.emit('join_room_response', { success: false, message: 'Max 2 players per game. Only existing players can rejoin.' });
-                    return;
-                }
-
-                if (!game.players.includes(userId)) {
-                    await GameService.addPlayerToGame(roomNumber, userId);
-                    console.log(`User ${userId} added to game ${room}`);
-                } else {
-                    console.log(`User ${userId} is already in the game ${room}`);
-                }
-
-                socket.join(room);
-                console.log(`User ${socket.id} has joined room ${room}`);
-
-                const players = await GameService.getPlayersInGame(roomNumber);
-                const playerUsernames = players.map(player => player.username);
-
-                io.to(room).emit('update_players', { players: playerUsernames });
-                socket.emit('join_room_response', { success: true, message: `User ${userId} joined room ${room}`, username });
-            } else {
+            if (!game) {
                 console.log(`Game ${room} not found`);
                 socket.emit('join_room_response', { success: false, message: 'Game not found' });
+                return;
             }
+
+            const socketsInRoom = await io.in(room).fetchSockets();
+
+            if (socketsInRoom.length >= 2) {
+                console.log('Room is full!');
+                socket.emit('join_room_response', { success: false, message: 'Room is full!' });
+                return;
+            }
+
+            if (game.players.length === 2 && !game.players.includes(userId)) {
+                console.log('Max 2 players per game. Only existing players can rejoin.');
+                socket.emit('join_room_response', { success: false, message: 'Max 2 players per game. Only existing players can rejoin.' });
+                return;
+            }
+
+            if (!game.players.includes(userId)) {
+                await GameService.addPlayerToGame(roomNumber, userId);
+                console.log(`User ${userId} added to game ${room}`);
+            } else {
+                console.log(`User ${userId} is already in the game ${room}`);
+            }
+
+            socket.join(room);
+            console.log(`User ${socket.id} has joined room ${room}`);
+
+            const players = await GameService.getPlayersInGame(roomNumber);
+            const playerUsernames = players.map(player => player.username);
+
+            io.to(room).emit('update_players', { players: playerUsernames });
+            socket.emit('join_room_response', { success: true, message: `User ${userId} joined room ${room}`, username });
         } catch (error) {
             console.error(`Error handling join_room for game ${room}:`, error);
             socket.emit('join_room_response', { success: false, message: 'Server error' });
