@@ -7,6 +7,7 @@ interface Game extends Document {
     moves: Move[];
     winner?: string | null;
     playerSymbols: PlayerSymbol[];
+    currentPlayer: string;
 }
 
 interface PlayerSymbol {
@@ -43,7 +44,8 @@ const gameSchema: Schema<Game> = new Schema<Game>({
     players: { type: [String], required: false },
     moves: { type: [moveSchema], required: false },
     winner: { type: String, default: null },
-    playerSymbols: { type: [playerSymbolSchema], required: true }
+    playerSymbols: { type: [playerSymbolSchema], required: true },
+    currentPlayer: { type: String, required: false }
 });
 
 const GameModel: Model<Game> = mongoose.model<Game>("Game", gameSchema);

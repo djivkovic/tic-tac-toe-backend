@@ -1,6 +1,5 @@
-import { GameModel, generateGameId } from '../db/Game';
+import { GameModel, generateGameId, Move } from '../db/Game';
 import UserModel from '../db/User';
-import { Move } from '../db/Game';
 import * as Socket from '../socket';
 
 export const createGame = async (gameType: string) => {
@@ -12,7 +11,8 @@ export const createGame = async (gameType: string) => {
             players: [],
             moves: [],
             winner: null,
-            playerSymbols: []
+            playerSymbols: [],
+            currentPlayer: null
         });
 
         await newGame.save();
@@ -64,43 +64,48 @@ export const getPlayersInGame = async (gameId: number) => {
 };
 
 export const assignPlayer = async (gameId: number, userId: string, sign: string) => {
-        const game = await findGameById(gameId);
-        if (!game) {
-            throw new Error('Game not found');
+    const game = await findGameById(gameId);
+    if (!game) {
+        throw new Error('Game not found');
+    }
+
+    if (sign !== 'X' && sign !== 'O') {
+        throw new Error('Invalid sign');
+    }
+
+    if (game.players.length !== 2) {
+        throw new Error('Two players are required to assign symbols');
+    }
+
+    const playerWithSymbol = game.playerSymbols.find(ps => ps.playerId === userId);
+    if (playerWithSymbol) {
+        throw new Error(`Player ${userId} already has a symbol assigned`);
+    }
+
+    const assignedSigns = game.playerSymbols.map(ps => ps.symbol);
+    if (assignedSigns.includes(sign)) {
+        throw new Error(`Sign ${sign} is already taken`);
+    }
+
+    game.playerSymbols.push({ playerId: userId, symbol: sign });
+
+    const otherSign = sign === 'X' ? 'O' : 'X';
+    const otherPlayerId = game.players.find(pid => pid !== userId);
+    if (otherPlayerId) {
+        game.playerSymbols.push({ playerId: otherPlayerId, symbol: otherSign });
+
+        if (sign === 'X') {
+            game.currentPlayer = userId;
+        } else {
+            game.currentPlayer = otherPlayerId;
         }
+    }
 
-        if (sign !== 'X' && sign !== 'O') {
-            throw new Error('Invalid sign');
-        }
+    Socket.emitAssignSign(gameId);
 
-        if (game.players.length !== 2) {
-            throw new Error('Two players are required to assign symbols');
-        }
+    await game.save();
 
-        const playerWithSymbol = game.playerSymbols.find(ps => ps.playerId === userId);
-        if (playerWithSymbol) {
-            throw new Error(`Player ${userId} already has a symbol assigned`);
-        }
-
-        const assignedSigns = game.playerSymbols.map(ps => ps.symbol);
-        if (assignedSigns.includes(sign)) {
-            throw new Error(`Sign ${sign} is already taken`);
-        }
-
-        game.playerSymbols.push({ playerId: userId, symbol: sign });
-
-        if (game.players.length === 2 && !assignedSigns.includes(sign === 'X' ? 'O' : 'X')) {
-            const otherPlayerId = game.players.find(pid => pid !== userId);
-            if (otherPlayerId) {
-                game.playerSymbols.push({ playerId: otherPlayerId, symbol: sign === 'X' ? 'O' : 'X' });
-            }
-        }
-
-        Socket.emitAssignSign(gameId);
-
-        await game.save();
-
-        return game;
+    return game;
 };
 
 export const addMoveToGame = async (gameId: number, userId: string, move: Move) => {
@@ -110,6 +115,10 @@ export const addMoveToGame = async (gameId: number, userId: string, move: Move) 
             throw new Error('Game not found');
         }
 
+        if (game.currentPlayer !== userId) {
+            throw new Error('Not your turn to play!');
+        }
+
         const existingMove = game.moves.find(m => m.index.x === move.index.x && m.index.y === move.index.y);
 
         if (existingMove) {
@@ -117,6 +126,9 @@ export const addMoveToGame = async (gameId: number, userId: string, move: Move) 
         }
 
         game.moves.push(move);
+
+        game.currentPlayer = (game.currentPlayer === game.players[0]) ? game.players[1] : game.players[0];
+
         await game.save();
 
         Socket.emitMoves(gameId, move);
