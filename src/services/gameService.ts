@@ -28,7 +28,6 @@ export const findGameById = async (gameId: number) => {
     try {
         return await GameModel.findOne({ gameId });
     } catch (error) {
-        console.error('Error finding game by ID:', error);
         throw new Error('Failed to find game by ID!');
     }
 };
@@ -47,7 +46,6 @@ export const addPlayerToGame = async (gameId: number, userId: string) => {
 
         return game;
     } catch (error) {
-        console.error('Error adding player to game:', error);
         throw new Error('Failed to add player to game!');
     }
 };
@@ -61,13 +59,11 @@ export const getPlayersInGame = async (gameId: number) => {
 
         return await UserModel.find({ _id: { $in: game.players } }, 'username');
     } catch (error) {
-        console.error('Error getting players in game:', error);
         throw new Error('Failed to get players in game!');
     }
 };
 
 export const assignPlayer = async (gameId: number, userId: string, sign: string) => {
-    try {
         const game = await findGameById(gameId);
         if (!game) {
             throw new Error('Game not found');
@@ -91,10 +87,7 @@ export const assignPlayer = async (gameId: number, userId: string, sign: string)
         await game.save();
 
         return game;
-    } catch (error) {
-        console.error('Error assigning player symbol:', error);
-        throw new Error('Failed to assign player symbol!');
-    }
+
 };
 
 export const addMoveToGame = async (gameId: number, userId: string, move: Move) => {
@@ -107,8 +100,7 @@ export const addMoveToGame = async (gameId: number, userId: string, move: Move) 
         const existingMove = game.moves.find(m => m.index.x === move.index.x && m.index.y === move.index.y);
 
         if (existingMove) {
-            console.log(`Move (${move.index.x}, ${move.index.y}) already exists!`);
-            return game; 
+            throw new Error(`Move (${move.index.x}, ${move.index.y}) already exists!`);
         }
 
         game.moves.push(move);
@@ -118,7 +110,6 @@ export const addMoveToGame = async (gameId: number, userId: string, move: Move) 
 
         return game;
     } catch (error) {
-        console.error('Error adding move to game:', error);
         throw new Error('Failed to add move to game!');
     }
 };
@@ -133,7 +124,6 @@ export const getMovesByGameId = async (gameId: number) => {
 
         return game.moves;
     } catch (error) {
-        console.error('Error getting moves by gameId:', error);
         throw new Error('Failed to get moves by gameId!');
     }
 };
@@ -152,7 +142,6 @@ export const getPlayerSymbol = async (gameId: number, userId: string) => {
 
         return playerSymbol.symbol;
     } catch (error) {
-        console.error('Error getting player symbol:', error);
         throw new Error('Failed to get player symbol!');
     }
 };
