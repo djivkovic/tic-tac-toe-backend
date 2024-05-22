@@ -115,6 +115,10 @@ export const addMoveToGame = async (gameId: number, userId: string, move: Move) 
             throw new Error('Game not found');
         }
 
+        if (game.winner) {
+            throw new Error('Game has already been won!');
+        }
+
         if (game.currentPlayer !== userId) {
             throw new Error('Not your turn to play!');
         }
@@ -127,7 +131,12 @@ export const addMoveToGame = async (gameId: number, userId: string, move: Move) 
 
         game.moves.push(move);
 
-        game.currentPlayer = (game.currentPlayer === game.players[0]) ? game.players[1] : game.players[0];
+        const winner = checkWinner(game.moves);
+        if (winner) {
+            game.winner = winner;
+        } else {
+            game.currentPlayer = (game.currentPlayer === game.players[0]) ? game.players[1] : game.players[0];
+        }
 
         await game.save();
 
@@ -173,4 +182,30 @@ export const getPlayerSymbol = async (gameId: number, userId: string) => {
     } catch (error) {
         throw new Error('Failed to get player symbol!');
     }
+};
+
+const checkWinner = (moves: Move[]): string | null => {
+    const winningCombinations = [
+        [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }],
+        [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }],
+        [{ x: 2, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 2 }],
+        [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }],
+        [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }],
+        [{ x: 0, y: 2 }, { x: 1, y: 2 }, { x: 2, y: 2 }],
+        [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 2 }],
+        [{ x: 0, y: 2 }, { x: 1, y: 1 }, { x: 2, y: 0 }],
+    ];
+
+    for (const combination of winningCombinations) {
+        const [a, b, c] = combination;
+        const moveA = moves.find(m => m.index.x === a.x && m.index.y === a.y);
+        const moveB = moves.find(m => m.index.x === b.x && m.index.y === b.y);
+        const moveC = moves.find(m => m.index.x === c.x && m.index.y === c.y);
+
+        if (moveA && moveB && moveC && moveA.sign === moveB.sign && moveA.sign === moveC.sign) {
+            return moveA.userId;
+        }
+    }
+
+    return null;
 };
