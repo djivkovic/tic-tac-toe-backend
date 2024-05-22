@@ -73,6 +73,10 @@ export const assignPlayer = async (gameId: number, userId: string, sign: string)
             throw new Error('Invalid sign');
         }
 
+        if (game.players.length !== 2) {
+            throw new Error('Two players are required to assign symbols');
+        }
+
         const playerWithSymbol = game.playerSymbols.find(ps => ps.playerId === userId);
         if (playerWithSymbol) {
             throw new Error(`Player ${userId} already has a symbol assigned`);
@@ -84,10 +88,19 @@ export const assignPlayer = async (gameId: number, userId: string, sign: string)
         }
 
         game.playerSymbols.push({ playerId: userId, symbol: sign });
+
+        if (game.players.length === 2 && !assignedSigns.includes(sign === 'X' ? 'O' : 'X')) {
+            const otherPlayerId = game.players.find(pid => pid !== userId);
+            if (otherPlayerId) {
+                game.playerSymbols.push({ playerId: otherPlayerId, symbol: sign === 'X' ? 'O' : 'X' });
+            }
+        }
+
+        Socket.emitAssignSign(gameId);
+
         await game.save();
 
         return game;
-
 };
 
 export const addMoveToGame = async (gameId: number, userId: string, move: Move) => {
@@ -133,6 +146,10 @@ export const getPlayerSymbol = async (gameId: number, userId: string) => {
         const game = await findGameById(gameId);
         if (!game) {
             throw new Error('Game not found');
+        }
+
+        if (game.players.length !== 2) {
+            throw new Error('Two players are required to get player symbol');
         }
 
         const playerSymbol = game.playerSymbols.find(ps => ps.playerId === userId);

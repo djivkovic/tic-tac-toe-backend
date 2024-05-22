@@ -7,6 +7,10 @@ export const emitMoves = (room, data) => {
     io.to(room).emit('update_moves', { move: data })
 }
 
+export const emitAssignSign = (room) => {
+    io.to(room).emit('update_sign');
+}
+
 const onJoin = (socket) => {
     socket.on('join_room', async (data) => {
         const { room, userId, username } = data;
@@ -30,7 +34,7 @@ const onJoin = (socket) => {
 
             const socketsInRoom = await io.in(room).fetchSockets();
 
-            if (socketsInRoom.length >= 2) {
+            if (socketsInRoom.length >= 2 && !game.players.includes(userId)) {
                 console.log('Room is full!');
                 socket.emit('join_room_response', { success: false, message: 'Room is full!' });
                 return;
@@ -62,7 +66,7 @@ const onJoin = (socket) => {
             socket.emit('join_room_response', { success: false, message: 'Server error' });
         }
     });
-}
+};
 
 const updateMoves = (socket) => {
     socket.on('update_moves', ({ roomId, moves }) => {
@@ -92,6 +96,8 @@ export const initSocket = (server: any) => {
         updateMoves(socket);
 
         onDisconnect(socket);
+
+        emitAssignSign(socket);
     });
 
     return io;
