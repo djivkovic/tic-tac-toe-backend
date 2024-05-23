@@ -6,16 +6,36 @@ interface Game extends Document {
     players: string[];
     moves: Move[];
     winner?: string | null;
+    playerSymbols: PlayerSymbol[];
+    currentPlayer: string;
 }
 
-interface Move {
-    index: number;
-    player: string;
+interface PlayerSymbol {
+    playerId: string;
+    symbol: string;
+}
+
+export interface Move {
+    index: {
+        x: number;
+        y: number;
+    };
+    sign: string;
+    userId: string;
 }
 
 const moveSchema: Schema<Move> = new Schema<Move>({
-    index: { type: Number, required: true },
-    player: { type: String, required: true }
+    index: {
+        x: { type: Number, required: true },
+        y: { type: Number, required: true }
+    },
+    sign: { type: String, required: true },
+    userId: { type: String, required: true }
+});
+
+const playerSymbolSchema: Schema<PlayerSymbol> = new Schema<PlayerSymbol>({
+    playerId: { type: String, required: true },
+    symbol: { type: String, required: true }
 });
 
 const gameSchema: Schema<Game> = new Schema<Game>({
@@ -23,7 +43,9 @@ const gameSchema: Schema<Game> = new Schema<Game>({
     gameType: { type: String, required: true },
     players: { type: [String], required: false },
     moves: { type: [moveSchema], required: false },
-    winner: { type: String, default: null }
+    winner: { type: String, default: null },
+    playerSymbols: { type: [playerSymbolSchema], required: true },
+    currentPlayer: { type: String, required: false }
 });
 
 const GameModel: Model<Game> = mongoose.model<Game>("Game", gameSchema);
