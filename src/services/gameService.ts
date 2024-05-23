@@ -91,15 +91,14 @@ export const assignPlayer = async (gameId: number, userId: string, sign: string)
 
     const otherSign = sign === 'X' ? 'O' : 'X';
     const otherPlayerId = game.players.find(pid => pid !== userId);
-    if (otherPlayerId) {
-        game.playerSymbols.push({ playerId: otherPlayerId, symbol: otherSign });
-
-        if (sign === 'X') {
-            game.currentPlayer = userId;
-        } else {
-            game.currentPlayer = otherPlayerId;
-        }
+    
+    if (!otherPlayerId){
+        throw new Error('Other player not found!');
     }
+
+    game.playerSymbols.push({ playerId: otherPlayerId, symbol: otherSign});
+
+    game.currentPlayer = (sign === 'X') ? userId : otherPlayerId;
 
     Socket.emitAssignSign(gameId);
 
