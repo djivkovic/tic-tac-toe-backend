@@ -62,7 +62,7 @@ const onJoin = (socket) => {
             io.to(room).emit('update_players', { players: playerUsernames });
             socket.emit('join_room_response', { success: true, message: `User ${userId} joined room ${room}`, username });
         } catch (error) {
-            console.error(`Error handling join_room for game ${room}:`, error);
+            console.error(`Error handling join_room for game ${room}:`);
             socket.emit('join_room_response', { success: false, message: 'Server error' });
         }
     });

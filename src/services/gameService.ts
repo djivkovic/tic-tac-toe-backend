@@ -19,14 +19,19 @@ export const createGame = async (gameType: string) => {
 
         return { gameId };
     } catch (error) {
-        console.error('Error creating game:', error);
         throw new Error('Failed to create game!');
     }
 };
 
 export const findGameById = async (gameId: number) => {
     try {
-        return await GameModel.findOne({ gameId });
+        const game = await GameModel.findOne({ gameId });
+
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        return game;
     } catch (error) {
         throw new Error('Failed to find game by ID!');
     }
@@ -64,47 +69,51 @@ export const getPlayersInGame = async (gameId: number) => {
 };
 
 export const assignPlayer = async (gameId: number, userId: string, sign: string) => {
-    const game = await findGameById(gameId);
-    if (!game) {
-        throw new Error('Game not found');
+    try {
+        const game = await findGameById(gameId);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        if (sign !== 'X' && sign !== 'O') {
+            throw new Error('Invalid sign');
+        }
+
+        if (game.players.length !== 2) {
+            throw new Error('Two players are required to assign symbols');
+        }
+
+        const playerWithSymbol = game.playerSymbols.find(ps => ps.playerId === userId);
+        if (playerWithSymbol) {
+            throw new Error(`Player ${userId} already has a symbol assigned`);
+        }
+
+        const assignedSigns = game.playerSymbols.map(ps => ps.symbol);
+        if (assignedSigns.includes(sign)) {
+            throw new Error(`Sign ${sign} is already taken`);
+        }
+
+        game.playerSymbols.push({ playerId: userId, symbol: sign });
+
+        const otherSign = sign === 'X' ? 'O' : 'X';
+        const otherPlayerId = game.players.find(pid => pid !== userId);
+
+        if (!otherPlayerId){
+            throw new Error('Other player not found');
+        }
+
+        game.playerSymbols.push({ playerId: otherPlayerId, symbol: otherSign });
+
+        game.currentPlayer = (sign === 'X') ? userId : otherPlayerId;
+
+        Socket.emitAssignSign(gameId);
+
+        await game.save();
+
+        return game;
+    } catch (error) {
+        throw new Error('Failed to assign player!');
     }
-
-    if (sign !== 'X' && sign !== 'O') {
-        throw new Error('Invalid sign');
-    }
-
-    if (game.players.length !== 2) {
-        throw new Error('Two players are required to assign symbols');
-    }
-
-    const playerWithSymbol = game.playerSymbols.find(ps => ps.playerId === userId);
-    if (playerWithSymbol) {
-        throw new Error(`Player ${userId} already has a symbol assigned`);
-    }
-
-    const assignedSigns = game.playerSymbols.map(ps => ps.symbol);
-    if (assignedSigns.includes(sign)) {
-        throw new Error(`Sign ${sign} is already taken`);
-    }
-
-    game.playerSymbols.push({ playerId: userId, symbol: sign });
-
-    const otherSign = sign === 'X' ? 'O' : 'X';
-    const otherPlayerId = game.players.find(pid => pid !== userId);
-    
-    if (!otherPlayerId){
-        throw new Error('Other player not found!');
-    }
-
-    game.playerSymbols.push({ playerId: otherPlayerId, symbol: otherSign});
-
-    game.currentPlayer = (sign === 'X') ? userId : otherPlayerId;
-
-    Socket.emitAssignSign(gameId);
-
-    await game.save();
-
-    return game;
 };
 
 export const addMoveToGame = async (gameId: number, userId: string, move: Move) => {
