@@ -75,7 +75,7 @@ export const getPlayerSymbol = async (req: Request, res: Response) => {
     }
 };
 
-export const findGameById = async (req: Request, res: Response) => {
+export const findGameHistoryById = async (req: Request, res: Response) => {
     try {
         const gameId = parseInt(req.params.gameId, 10);
 
@@ -89,8 +89,19 @@ export const findGameById = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Game not found' });
         }
 
-        res.status(200).json({ found: true });
+        res.status(200).json({ found: true, game });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+};
+
+export const getPlayersUsername = async (req: Request, res: Response) => {
+    try {
+        const gameId = parseInt(req.params.gameId, 10);
+
+        const players = await GameService.getPlayersInGame(gameId);
+        res.status(200).json(players);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to get players in game!' });
     }
 };
