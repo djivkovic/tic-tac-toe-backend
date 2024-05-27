@@ -75,7 +75,41 @@ export const getPlayerSymbol = async (req: Request, res: Response) => {
     }
 };
 
-export const findGameById = async (req: Request, res: Response) => {
+export const findGameHistoryById = async (req: Request, res: Response) => {
+    try {
+        const gameId = parseInt(req.params.gameId, 10);
+
+        if (isNaN(gameId)) {
+            return res.status(400).json({ error: 'Invalid gameId' });
+        }
+
+        const userId = req.params.userId;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Invalid userId' });
+        }
+
+        const game = await GameService.findGameById(gameId);
+
+        if (!game) {
+            return res.status(404).json({ error: 'Game not found' });
+        }
+
+        if (game.winner === null) {
+            return res.status(403).json({ error: 'Game is not finished yet' });
+        }
+
+        if (!game.players.includes(userId)) {
+            return res.status(403).json({ error: 'User was not part of this game' });
+        }
+
+        res.status(200).json({ found: true, game });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const findGame = async (req: Request, res: Response) => {
     try {
         const gameId = parseInt(req.params.gameId, 10);
 
@@ -89,7 +123,39 @@ export const findGameById = async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Game not found' });
         }
 
-        res.status(200).json({ found: true });
+        res.status(200).json({ found: true, game });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const getPlayersUsername = async (req: Request, res: Response) => {
+    try {
+        const gameId = parseInt(req.params.gameId, 10);
+
+        const players = await GameService.getPlayersInGame(gameId);
+        res.status(200).json(players);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to get players in game!' });
+    }
+};
+
+export const getWinnerByGameId = async (req: Request, res: Response) => {
+    try {
+        const gameId = parseInt(req.params.gameId, 10);
+
+        if (isNaN(gameId)) {
+            return res.status(400).json({ error: 'Invalid gameId' });
+        }
+
+        const game = await GameService.findGameById(gameId);
+
+        if (!game) {
+            return res.status(404).json({ error: 'Game not found' });
+        }
+
+        const winner = game.winner;
+        res.status(200).json({ winner });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
