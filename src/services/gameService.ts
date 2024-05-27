@@ -142,6 +142,8 @@ export const addMoveToGame = async (gameId: number, userId: string, move: Move) 
         const winner = checkWinner(game.moves);
         if (winner) {
             game.winner = winner;
+        } else if (game.moves.length === 9) {
+            game.winner = 'Draw';
         } else {
             game.currentPlayer = (game.currentPlayer === game.players[0]) ? game.players[1] : game.players[0];
         }
@@ -192,7 +194,7 @@ export const getPlayerSymbol = async (gameId: number, userId: string) => {
     }
 };
 
-const checkWinner = (moves: Move[]): string | null => {
+export const checkWinner = (moves: Move[]): string | null => {
     const winningCombinations = [
         [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }],
         [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }],
