@@ -68,6 +68,51 @@ const onJoin = (socket) => {
     });
 };
 
+const joinSinglePlayerRoom = (socket) => {
+    socket.on('join_singlePlayer_room', async (data) => {
+        const { room, userId, username } = data;
+
+        if (!room || isNaN(room)) {
+            console.error(`Invalid room value: ${room}`);
+            socket.emit('join_room_response', { success: false, message: 'Invalid room value' });
+            return;
+        }
+
+        const roomNumber = parseInt(room, 10);
+
+        try {
+            const game = await GameService.findGameById(roomNumber);
+
+            if (!game) {
+                console.log(`Game ${room} not found`);
+                socket.emit('join_room_response', { success: false, message: 'Game not found' });
+                return;
+            }
+
+            if (game.gameType !== 'singlePlayer') {
+                socket.emit('join_room_response', { success: false, message: 'Room is not of type singlePlayer' });
+                return;
+            }
+
+            const socketsInRoom = await io.in(room).fetchSockets();
+
+            if (socketsInRoom.length >= 1 && !game.players.includes(userId)) {
+                console.log('Room is full!');
+                socket.emit('join_room_response', { success: false, message: 'Room is full!' });
+                return;
+            }
+
+            await GameService.addPlayerToGame(roomNumber, userId);
+            socket.join(room);
+            socket.emit('join_room_response', { success: true, message: `User ${userId} joined room ${room}`, username });
+            console.log(`User ${socket.id} has joined room ${room}`);
+        } catch (error) {
+            console.error(`Error handling join_room for game ${room}:`);
+            socket.emit('join_room_response', { success: false, message: 'Server error' });
+        }
+    });
+}
+
 const updateMoves = (socket) => {
     socket.on('update_moves', ({ roomId, moves }) => {
         io.to(roomId).emit('update_moves', { moves })
@@ -98,6 +143,8 @@ export const initSocket = (server: any) => {
         onDisconnect(socket);
 
         emitAssignSign(socket);
+
+        joinSinglePlayerRoom(socket);
     });
 
     return io;

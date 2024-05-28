@@ -5,6 +5,7 @@ const router = Router();
 
 router.post('/create-game', GameController.createGame);
 router.post('/make-move/:gameId', GameController.addMoveToGame);
+router.post('/singlePlayer/make-move/:gameId', GameController.addMoveToSinglePlayerGame);
 router.get('/moves/:gameId', GameController.getMovesByGameId);
 router.post('/assign-player/:gameId', GameController.assignPlayer);
 router.get('/player-symbol/:gameId/:userId', GameController.getPlayerSymbol);
