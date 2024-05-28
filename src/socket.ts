@@ -89,15 +89,22 @@ const joinSinglePlayerRoom = (socket) => {
                 return;
             }
 
-            if (game.gameType === 'singlePlayer') {
-                await GameService.addPlayerToGame(roomNumber, userId);
-                console.log(`User ${userId} added to game ${room}`);
-            } else {
+            if (game.gameType !== 'singlePlayer') {
                 socket.emit('join_room_response', { success: false, message: 'Room is not of type singlePlayer' });
                 return;
             }
 
+            const socketsInRoom = await io.in(room).fetchSockets();
+
+            if (socketsInRoom.length >= 1 && !game.players.includes(userId)) {
+                console.log('Room is full!');
+                socket.emit('join_room_response', { success: false, message: 'Room is full!' });
+                return;
+            }
+
+            await GameService.addPlayerToGame(roomNumber, userId);
             socket.join(room);
+            socket.emit('join_room_response', { success: true, message: `User ${userId} joined room ${room}`, username });
             console.log(`User ${socket.id} has joined room ${room}`);
         } catch (error) {
             console.error(`Error handling join_room for game ${room}:`);
