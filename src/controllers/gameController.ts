@@ -28,6 +28,22 @@ export const addMoveToGame = async (req: Request, res: Response) => {
     }
 };
 
+export const addMoveToSinglePlayerGame = async (req: Request, res: Response) => {
+    try {
+        const gameId = parseInt(req.params.gameId, 10);
+        const move = req.body.move;
+
+        if (isNaN(gameId) || !move) {
+            return res.status(400).json({ error: 'Invalid input' });
+        }
+
+        const updatedGame = await GameService.addMoveToSinglePlayerGame(gameId, move);
+        res.status(200).json(updatedGame);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 export const getMovesByGameId = async (req: Request, res: Response) => {
     try {
         const gameId = parseInt(req.params.gameId, 10);

@@ -68,6 +68,44 @@ const onJoin = (socket) => {
     });
 };
 
+const joinSinglePlayerRoom = (socket) => {
+    socket.on('join_singlePlayer_room', async (data) => {
+        const { room, userId, username } = data;
+
+        if (!room || isNaN(room)) {
+            console.error(`Invalid room value: ${room}`);
+            socket.emit('join_room_response', { success: false, message: 'Invalid room value' });
+            return;
+        }
+
+        const roomNumber = parseInt(room, 10);
+
+        try {
+            const game = await GameService.findGameById(roomNumber);
+
+            if (!game) {
+                console.log(`Game ${room} not found`);
+                socket.emit('join_room_response', { success: false, message: 'Game not found' });
+                return;
+            }
+
+            if (game.gameType === 'singlePlayer') {
+                await GameService.addPlayerToGame(roomNumber, userId);
+                console.log(`User ${userId} added to game ${room}`);
+            } else {
+                socket.emit('join_room_response', { success: false, message: 'Room is not of type singlePlayer' });
+                return;
+            }
+
+            socket.join(room);
+            console.log(`User ${socket.id} has joined room ${room}`);
+        } catch (error) {
+            console.error(`Error handling join_room for game ${room}:`);
+            socket.emit('join_room_response', { success: false, message: 'Server error' });
+        }
+    });
+}
+
 const updateMoves = (socket) => {
     socket.on('update_moves', ({ roomId, moves }) => {
         io.to(roomId).emit('update_moves', { moves })
@@ -98,6 +136,8 @@ export const initSocket = (server: any) => {
         onDisconnect(socket);
 
         emitAssignSign(socket);
+
+        joinSinglePlayerRoom(socket);
     });
 
     return io;

@@ -5,14 +5,26 @@ import * as Socket from '../socket';
 export const createGame = async (gameType: string) => {
     try {
         const gameId = await generateGameId();
+        let players = [];
+        let playerSymbols = [];
+
+        if (gameType === 'singlePlayer') {
+            const botUser = await UserModel.findOne({ username: 'BOT' });
+            if (!botUser) {
+                throw new Error('BOT user not found!');
+            }
+            players.push(botUser._id); 
+            playerSymbols.push({ playerId: botUser._id, symbol: 'O' });
+        }
+
         const newGame = new GameModel({
             gameId,
             gameType,
-            players: [],
+            players,
             moves: [],
             winner: null,
-            playerSymbols: [],
-            currentPlayer: null
+            playerSymbols,
+            currentPlayer: null 
         });
 
         await newGame.save();
@@ -44,8 +56,14 @@ export const addPlayerToGame = async (gameId: number, userId: string) => {
             throw new Error('Game not found');
         }
 
+
         if (!game.players.includes(userId)) {
             game.players.push(userId);
+            await game.save();
+        }
+
+        if (game.gameType === 'singlePlayer'){
+            game.playerSymbols.push({ playerId: userId, symbol: 'X' });
             await game.save();
         }
 
@@ -151,6 +169,80 @@ export const addMoveToGame = async (gameId: number, userId: string, move: Move) 
         await game.save();
 
         Socket.emitMoves(gameId, move);
+
+        return game;
+    } catch (error) {
+        throw new Error('Failed to add move to game!');
+    }
+};
+
+const calculateAvailableMoves = (moves: Move[]) => {
+    const allMoves = [];
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            allMoves.push({ index: { x: i, y: j }, sign: null });
+        }
+    }
+    return allMoves.filter(move => !moves.some(m => m.index.x === move.index.x && m.index.y === move.index.y));
+};
+
+const getRandomMove = (moves: Move[], botUserId: string) => {
+    const randomIndex = Math.floor(Math.random() * moves.length);
+    return { index: moves[randomIndex].index, sign: 'O', userId: botUserId };
+};
+
+export const addMoveToSinglePlayerGame = async (gameId: number, move: Move) => {
+    try {
+        const game = await findGameById(gameId);
+
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        if (game.winner) {
+            throw new Error('Game has already been won!');
+        }
+
+        const existingMove = game.moves.find(m => m.index.x === move.index.x && m.index.y === move.index.y);
+
+        if (existingMove) {
+            throw new Error(`Move (${move.index.x}, ${move.index.y}) already exists!`);
+        }
+
+        game.moves.push(move);
+
+        const winner = checkWinner(game.moves);
+        if (winner) {
+            game.winner = winner;
+        } else if (game.moves.length === 9) {
+            game.winner = 'Draw';
+        }
+
+        await game.save();
+
+        if (!game.winner) {
+            const botUser = await UserModel.findOne({ username: 'BOT' });
+            if (!botUser) {
+                throw new Error('BOT user not found!');
+            }
+            
+            const availableMoves = calculateAvailableMoves(game.moves);
+            const randomMove = getRandomMove(availableMoves, botUser._id);
+
+            game.moves.push(randomMove);
+
+            const winnerAfterBotMove = checkWinner(game.moves);
+            if (winnerAfterBotMove) {
+                game.winner = winnerAfterBotMove;
+            }
+
+            await game.save();
+
+            Socket.emitMoves(gameId, move);
+            Socket.emitMoves(gameId, randomMove);
+        } else {
+            Socket.emitMoves(gameId, move);
+        }
 
         return game;
     } catch (error) {
