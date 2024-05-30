@@ -32,6 +32,11 @@ const onJoin = (socket) => {
                 return;
             }
 
+            if (game.gameType !== 'multiPlayer') {
+                socket.emit('join_room_response', { success: false, message: 'Room is not of type multiPlayer' });
+                return;
+            }
+
             const socketsInRoom = await io.in(room).fetchSockets();
 
             if (socketsInRoom.length >= 2 && !game.players.includes(userId)) {
